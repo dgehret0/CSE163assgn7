@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+    <h1 style = "text-align:center; color:#254560"><bold> Population Density of Utah</bold></h1>
+<style>
+
+.counties {
+  fill: none;
+  
+}
+    
+ 
+.states {
+  fill: none;
+  stroke: #fff;
+  stroke-linejoin: round;
+}
+    
+.toolTip {
+    position: absolute;
+    display: none;
+    min-width: 80px;
+    height: auto;
+    background: none repeat scroll 0 0 #ffffff;
+    border: 1px solid #6F257F;
+    padding: 14px;
+    text-align: center;
+}
+
+</style>
+<!-- <svg width="5000" height="900"></svg> -->
+<svg width="960" height="600"></svg>
+<script src="//d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<script src="//d3js.org/topojson.v1.min.js"></script>
+
+<script>
+
+var svg = d3.select("svg"),
+    width = +svg.attr("width"),
+    height = +svg.attr("height");
+
+var rateById = d3.map();
+
+var color = d3.scaleThreshold()
+    //.domain([1, 10, 50, 200, 500, 1000, 2000, 4000])
+    .domain([1, 5, 10, 25, 50, 100, 250, 500])
+    .range(d3.schemeOrRd[9]);
+    
+var x = d3.scaleSqrt()
+    .domain([0, 500])
+    //.domain([0, 4500])
+    .rangeRound([440, 950]);
+
+var g = svg.append("g")
+    .attr("class", "key")
+    .attr("transform", "translate(0,40)");
+    
+var tooltip = d3.select("body").append("div").attr("class", "toolTip");
+
+g.selectAll("rect")
+  .data(color.range().map(function(d) {
+      d = color.invertExtent(d);
+      if (d[0] == null) d[0] = x.domain()[0];
+      if (d[1] == null) d[1] = x.domain()[1];
+      return d;
+    }))
+  .enter().append("rect")
+    .attr("height", 8)
+    .attr("x", function(d) { return x(d[0]); })
+    .attr("width", function(d) { return x(d[1]) - x(d[0]); })
+    .attr("fill", function(d) { return color(d[0]); });
+
+g.append("text")
+    .attr("class", "caption")
+    .attr("x", x.range()[0])
+    .attr("y", -6)
+    .attr("fill", "#000")
+    .attr("text-anchor", "start")
+    .attr("font-weight", "bold")
+    .text("Population per square mile");
+
+g.call(d3.axisBottom(x)
+    .tickSize(13)
+    .tickValues(color.domain()))
+  .select(".domain")
+    .remove();  
+var projection = d3.geoAlbersUsa()
+    .scale(3000)
+    .translate([(width + 1600) / 2, (height + 300) / 2]);
+    
+
+var path = d3.geoPath()
+    .projection(projection);
+    
+
+
+d3.queue()
+    .defer(d3.json, "us-10m.json")
+    .defer(d3.csv, "pop_density.csv", function(d) {
+    if (d.label=="Utah"){
+        rateById.set(d.geoid2, +d.density, +d.displaylabel);
+    }
+    })
+    .await(ready);
+    
+var density, borders;
+    var div = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+        
+        
+function ready(error, us) {
+  if (error) throw error;
+  document.getElementById('button_county2').style.display="none";
+
+   
+  svg.append("g")
+      .attr("class", "counties")
+    .selectAll("path")
+      .data(topojson.feature(us, us.objects.counties).features)
+    .enter().append("path")
+      .attr("fill", function(d) { return color(rateById.get(d.id)); })
+    
+      .attr("d", path)//;
+    .on("mouseover", function(d) {
+        tooltip
+          .style("left", d3.event.pageX - 50 + "px")
+          .style("top", d3.event.pageY - 70 + "px")
+          .style("display", "inline-block")
+          .html("County: ", function(d) { return (d.density); });
+    })
+    
+    .on("mouseout", function(d){
+        tooltip
+            .style("display", "none");
+    });
+    
+
+    function toggleBoundaries1() {
+      svg.append("path")
+          .datum(topojson.mesh(us, us.objects.counties))  
+          .attr("class", "states")
+          //.attr("stroke", "#000")
+          .attr("stroke-opacity", 1)
+          //.style("display", "block")
+          .attr("d", path);
+        
+      document.getElementById('button_county').style.display="none";
+      document.getElementById('button_county2').style.display="inline";
+
+
+    
+    }
+    function toggleBoundaries2() {
+        location.reload()
+    }
+    
+    svg.append("path")
+          .datum(topojson.mesh(us, us.objects.counties, function(a, b) { return a !== b; }))  
+          .attr("class", "states")
+          .attr("stroke", "#000")
+          .attr("stroke-opacity", 0)
+          .attr("d", path)
+
+    
+    
+    function toggleColor1() {
+        
+        svg.append("g")
+            .selectAll("color")
+              //.data(topojson.feature(us, us.objects.counties).features)
+            .enter().append("color")
+              //.attr("fill", function(d) { return color(rateById.get(d.id)); })
+            .domain([1, 10, 50, 200, 500, 1000, 2000, 4000])
+            //.domain([1, 5, 10, 25, 50, 100, 250, 500])
+            .range(d3.schemeOrRd[9]);
+    
+        
+    }
+
+    document.getElementById("button_color").onclick=function() {toggleColor1() };
+
+    document.getElementById("button_county").onclick=function() {toggleBoundaries1() };
+    document.getElementById("button_county2").onclick=function() {toggleBoundaries2() };
+
+
+
+}
+    
+
+
+
+
+</script>
+ <body>
+    <button id="button_color" type="button">Change Color</button>
+</body> 
+<body>
+    <button id="button_county" type="button">Toggle County Boundary
+    </button>
+    <button id="button_county2" type="button">Toggle County Boundary</button>
+
+</body> 
